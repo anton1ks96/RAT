@@ -1,5 +1,6 @@
 import openai
-import subprocess
+import requests
+import json
 from config import MODEL_PROVIDER, OPENAI_API_KEY, OLLAMA_MODEL
 
 class RAGEngine:
@@ -29,17 +30,20 @@ class RAGEngine:
         return response.choices[0].message['content']
 
     def query_ollama(self, prompt):
-        command = ['ollama', 'run', OLLAMA_MODEL, prompt]
         try:
-            result = subprocess.run(command,
-                                    capture_output=True,
-                                    text=True,
-                                    check=True)
-            return result.stdout
-        except subprocess.CalledProcessError as e:
-            return (
-                f"Ошибка при вызове ollama:\n"
-                f"Команда: {command}\n"
-                f"Вывод: {e.output}\n"
-                f"Ошибка: {e.stderr}"
+            response = requests.post(
+                "http://localhost:11434/api/chat",
+                json={
+                    "model": OLLAMA_MODEL,
+                    "messages": [
+                        {"role": "system", "content": self.system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "stream": False
+                },
+                timeout=30
             )
+            response.raise_for_status()
+            return response.json()["message"]["content"]
+        except requests.exceptions.RequestException as e:
+            return f"Ошибка при обращении к Ollama API: {e}"
