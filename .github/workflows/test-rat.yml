@@ -8,6 +8,7 @@ on:
 
 jobs:
   run-tests:
+    environment: tests
     runs-on: ubuntu-latest
 
     steps:
@@ -27,7 +28,7 @@ jobs:
       - name: Create .env file
         run: |
           echo "MODEL_PROVIDER=openAI" >> .env
-          echo "OPENAI_API_KEY=${{ secrets.tests }}" >> .env
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
 
       - name: Run tests
         run: pytest tests/ --maxfail=1 --disable-warnings -q
