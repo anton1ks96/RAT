@@ -11,11 +11,14 @@ from models.rag_engine import RAGEngine
 from data.catalog_loader import load_catalog, format_catalog
 from prompts.system_prompt import SYSTEM_PROMPT
 from config import TELEGRAM_BOT_TOKEN
+from interface.context_manager import ContextManager
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+
+context_manager = ContextManager(ttl_seconds=120)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привет! Отправьте ваш запрос.")
@@ -24,10 +27,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     catalog = load_catalog()
     catalog_info = format_catalog(catalog)
     system_prompt = SYSTEM_PROMPT.format(catalog_info=catalog_info)
-    engine = RAGEngine(system_prompt)
 
+    user_id = update.effective_user.id
     user_input = update.message.text
-    response = engine.query(user_input)
+
+    context_manager.append_message(user_id, "user", user_input)
+    messages = context_manager.get_context(user_id, system_prompt)
+
+    engine = RAGEngine(system_prompt)
+    response = engine.query_with_messages(messages)
+
+    context_manager.append_message(user_id, "assistant", response)
+    context_manager.clear_expired_contexts()
+
     await update.message.reply_text(response)
 
 def run_telegram_bot():

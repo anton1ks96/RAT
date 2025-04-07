@@ -6,7 +6,7 @@ def main():
         description="Псевдо RAG-система."
     )
     parser.add_argument(
-        '--mode', choices=['cli', 'tg'], default='cli',
+        '--mode', choices=['cli', 'tg'], default='tg',
         help="Режим работы: cli (терминал) или tg (Telegram бот)"
     )
     args = parser.parse_args()

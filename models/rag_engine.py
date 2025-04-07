@@ -47,3 +47,35 @@ class RAGEngine:
             return response.json()["message"]["content"]
         except requests.exceptions.RequestException as e:
             return f"Ошибка при обращении к Ollama API: {e}"
+
+    def query_with_messages(self, messages):
+        if MODEL_PROVIDER == 'openAI':
+            return self.query_openai_with_messages(messages)
+        elif MODEL_PROVIDER == 'ollama':
+            return self.query_ollama_with_messages(messages)
+        else:
+            raise ValueError("Unsupported model provider")
+
+    def query_openai_with_messages(self, messages):
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=messages,
+            temperature=0.7,
+        )
+        return response.choices[0].message['content']
+
+    def query_ollama_with_messages(self, messages):
+        try:
+            response = requests.post(
+                "http://localhost:11434/api/chat",
+                json={
+                    "model": OLLAMA_MODEL,
+                    "messages": messages,
+                    "stream": False
+                },
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()["message"]["content"]
+        except requests.exceptions.RequestException as e:
+            return f"Ошибка при обращении к Ollama API: {e}"
