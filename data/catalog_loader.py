@@ -8,5 +8,8 @@ def load_catalog(catalog_path='catalog.json'):
 def format_catalog(catalog):
     catalog_lines = []
     for product in catalog:
-        catalog_lines.append(f"Название: {product['name']}, Цена: {product['price']}, Объем: {product['volume']}")
-    return "\n".join(catalog_lines)
+        line = f"{product['name']} · {product['volume']} · {product['price']}"
+        if 'description' in product and product['description']:
+            line += f"\n\nОписание: {product['description']}"
+        catalog_lines.append(line)
+    return "\n\n".join(catalog_lines)
