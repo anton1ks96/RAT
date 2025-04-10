@@ -26,3 +26,7 @@ class ContextManager:
             user_id: ctx for user_id, ctx in self.user_contexts.items()
             if now - ctx['last_active'] <= self.ttl
         }
+
+    def clear_user_context(self, user_id):
+        if user_id in self.user_contexts:
+            del self.user_contexts[user_id]
