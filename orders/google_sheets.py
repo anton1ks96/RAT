@@ -5,7 +5,7 @@ from google.oauth2.service_account import Credentials
 from config import SPREADSHEET_ID, CREDS_FILE
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-CREDS_FILE = os.path.join(os.path.dirname(__file__), CREDS_FILE)
+CREDS_FILE = os.path.join(os.path.dirname(__file__), "..", CREDS_FILE)
 SPREADSHEET_ID = SPREADSHEET_ID
 
 def save_to_google_sheets(data: dict) -> None:
