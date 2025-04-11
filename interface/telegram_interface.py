@@ -1,5 +1,5 @@
 import logging
-import re
+import json
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -20,7 +20,8 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-context_manager = ContextManager(max_messages=5)
+active_orders = {}
+context_manager = ContextManager(ttl_seconds=120)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привет! Отправьте ваш запрос.")
@@ -35,9 +36,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if funnel.is_complete():
             order_data = funnel.summarize_data()
-            save_to_google_sheets(order_data)
+
+            # ВРЕМЕННО: просто выводим, без сохранения
+            summary_lines = [f"{k}: {v}" for k, v in order_data.items()]
+            summary_text = "\n".join(summary_lines)
+
+            await update.message.reply_text("✅ Ваша заявка собрана:\n\n" + summary_text)
+
             context_manager.clear_user_context(user_id)
-            await update.message.reply_text("Ваша заявка оформлена")
             del active_orders[user_id]
         else:
             await update.message.reply_text(funnel.get_next_question())
@@ -53,19 +59,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     engine = RAGEngine(system_prompt)
     response = engine.query_with_messages(messages)
 
-    if "#ЗАЯВКА" in response:
-        funnel = OrderProcessing(user_id, context_manager)
+    try:
+        parsed = json.loads(response)
+        if parsed.get("intent") == "confirm_purchase":
+            product = parsed.get("product", {})
+            product_name = product.get("name", "Не указано")
+            volume = product.get("volume", "")
+            price = product.get("price", "")
 
-        products_match = re.search(r"#ТОВАРЫ: ([\w\s,]+)", response)
-        products_answer = products_match.group(1).strip() if products_match else "Не указано"
+            funnel = OrderProcessing(user_id, context_manager)
+            funnel.set_predefined_answer("Чек/Товар", f"{product_name} · {volume} · {price}")
+            active_orders[user_id] = funnel
 
-        funnel.set_predefined_answer("Чек/Товар", products_answer)
-        active_orders[user_id] = funnel
-
-        question = funnel.get_next_question()
-
-        await update.message.reply_text(f"Начинаем оформление вашей заявки.\n{question}")
-        return
+            question = funnel.get_next_question()
+            await update.message.reply_text(f"Начинаем оформление вашей заявки.\n{question}")
+            return
+    except json.JSONDecodeError:
+        pass
 
     context_manager.append_message(user_id, "assistant", response)
     context_manager.clear_expired_contexts()
@@ -74,8 +84,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def run_telegram_bot():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
     app.run_polling()

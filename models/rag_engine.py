@@ -1,3 +1,4 @@
+import openai
 import requests
 from openai import OpenAI
 from config import MODEL_PROVIDER, OPENAI_API_KEY, OLLAMA_MODEL, NOVITA_API_KEY, NOVITA_MODEL

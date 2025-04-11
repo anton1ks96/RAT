@@ -15,6 +15,7 @@ class OrderProcessing:
         self.context_manager = context_manager
         self.answers = [None] * len(QUESTIONS)
         self.current_question_index = 0
+        self.product_data = None
 
     def get_next_question(self) -> str | None:
         while self.current_question_index < len(QUESTIONS):
@@ -43,6 +44,11 @@ class OrderProcessing:
             if index == self.current_question_index:
                 self.current_question_index += 1
 
+    def set_product_data(self, product: dict) -> None:
+        self.product_data = product
+        formatted = f'{product.get("name", "")} · {product.get("volume", "")} · {product.get("price", "")}'
+        self.set_predefined_answer("Чек/Товар", formatted)
+
     def is_complete(self) -> bool:
         return all(answer is not None for answer in self.answers)
 
@@ -55,4 +61,11 @@ class OrderProcessing:
             "Чек/Товар",
             "Периодичность закупок"
         ]
-        return dict(zip(keys, self.answers))
+        summary = dict(zip(keys, self.answers))
+
+        if self.product_data:
+            summary["Товар"] = self.product_data.get("name", "")
+            summary["Объём"] = self.product_data.get("volume", "")
+            summary["Цена"] = self.product_data.get("price", "")
+
+        return summary

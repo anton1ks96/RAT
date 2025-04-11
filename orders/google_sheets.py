@@ -12,12 +12,22 @@ def save_to_google_sheets(data: dict) -> None:
     creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
     client = gspread.authorize(creds)
     sheet = client.open_by_key(SPREADSHEET_ID).sheet1
+
     row = [
-        data["Имя/Организация"],
-        data["Задача покупки"],
-        data["Город"],
-        data["Контакты"],
-        data["Чек/Товар"],
-        data["Периодичность закупок"]
+        data.get("Имя/Организация", ""),
+        data.get("Задача покупки", ""),
+        data.get("Город", ""),
+        data.get("Контакты", ""),
+        data.get("Периодичность закупок", "")
     ]
+
+    if "Товар" in data or "Объём" in data or "Цена" in data:
+        row.extend([
+            data.get("Товар", ""),
+            data.get("Объём", ""),
+            data.get("Цена", "")
+        ])
+    else:
+        row.append(data.get("Чек/Товар", ""))
+
     sheet.append_row(row)
