@@ -21,7 +21,7 @@ logging.basicConfig(
 )
 
 active_orders = {}
-context_manager = ContextManager(ttl_seconds=120)
+context_manager = ContextManager(max_messages=5)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привет! Отправьте ваш запрос.")

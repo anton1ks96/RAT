@@ -15,3 +15,7 @@ class ContextManager:
 
     def clear_expired_contexts(self):
         pass
+
+    def clear_user_context(self, user_id):
+        if user_id in self.user_contexts:
+            del self.user_contexts[user_id]
