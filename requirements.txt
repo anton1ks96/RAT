@@ -4,3 +4,4 @@ pytest-mock==3.14.0
 python-dotenv==1.0.1
 python-telegram-bot==21.10
 requests==2.32.3
+oauth2client==4.1.3
