@@ -10,6 +10,7 @@ from telegram.ext import (
 )
 from models.rag_engine import RAGEngine
 from data.catalog_loader import load_catalog, format_catalog
+from data.google_catalog_updater import update_catalog_from_google
 from prompts.system_prompt import SYSTEM_PROMPT
 from config import TELEGRAM_BOT_TOKEN
 from interface.context_manager import ContextManager
@@ -83,6 +84,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(response)
 
 def run_telegram_bot():
+    update_catalog_from_google()
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
