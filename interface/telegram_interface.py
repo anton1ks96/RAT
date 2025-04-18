@@ -97,6 +97,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         parsed = json.loads(response)
+        print(parsed)
         if parsed.get("intent") == "confirm_purchase":
             product = parsed.get("product", {})
             product_name = product.get("name", "Не указано")
