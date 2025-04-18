@@ -1,6 +1,7 @@
 import logging
 import json
 import asyncio
+import re
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -19,6 +20,30 @@ from config import TELEGRAM_BOT_TOKEN
 from interface.context_manager import ContextManager
 from orders import OrderProcessing, save_to_google_sheets
 
+
+def _extract_json_objects(text: str):
+    
+    objects = []
+    brace_stack = []
+    start = None
+    for idx, ch in enumerate(text):
+        if ch == '{':
+            if not brace_stack:
+                start = idx
+            brace_stack.append(ch)
+        elif ch == '}':
+            if brace_stack:
+                brace_stack.pop()
+                if not brace_stack and start is not None:
+                    snippet = text[start:idx + 1]
+                    try:
+                        obj = json.loads(snippet)
+                        objects.append(obj)
+                    except json.JSONDecodeError:
+                        pass
+    return objects
+
+
 STATUS_UPDATE_INTERVAL = 10
 STATUS_MESSAGES = [
     "Запрос обрабатывается. Пожалуйста подождите...",
@@ -31,15 +56,17 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+context_manager = ContextManager(max_messages=20, ttl_minutes=120)
 active_orders = {}
-context_manager = ContextManager(max_messages=5, min_interval=2)
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Отправьте ваш запрос.")
+    await update.message.reply_text("Привет! Я готов помочь вам сделать заказ.\nПросто напишите, что вам нужно.")
+
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    user_input = update.message.text
+    user_input = update.message.text.strip()
 
     if context_manager.is_too_frequent(user_id):
         await update.message.reply_text("Слишком частые запросы. Пожалуйста подождите пару секунд и попробуйте снова.")
@@ -56,28 +83,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logging.info("Сохранение заявки в google sheets.")
                 await update.message.reply_text("Ваша заявка была собрана и отправлена!")
             except Exception as e:
-                logging.info(f"Ошибка при сохранении в google sheets: {e}")
-
-            context_manager.clear_user_context(user_id)
-            del active_orders[user_id]
+                logging.exception(e)
+                await update.message.reply_text("Не удалось сохранить заявку. Попробуйте позже.")
+            finally:
+                active_orders.pop(user_id, None)
         else:
             await update.message.reply_text(funnel.get_next_question())
         return
 
-    status_index = 0
-    status_updated = False
-    status_message = await update.message.reply_text(STATUS_MESSAGES[status_index])
+    status_message = await update.message.reply_text(STATUS_MESSAGES[0])
 
     async def update_status():
-        nonlocal status_index, status_updated
-        while status_index < len(STATUS_MESSAGES) - 1:
-            await asyncio.sleep(STATUS_UPDATE_INTERVAL)
-            status_index += 1
-            try:
-                await status_message.edit_text(STATUS_MESSAGES[status_index])
-                status_updated = True
-            except Exception:
-                pass
+        i = 1
+        try:
+            while True:
+                await asyncio.sleep(STATUS_UPDATE_INTERVAL)
+                await status_message.edit_text(STATUS_MESSAGES[i % len(STATUS_MESSAGES)])
+                i += 1
+        except asyncio.CancelledError:
+            pass
 
     status_task = asyncio.create_task(update_status())
     await asyncio.sleep(0)
@@ -95,27 +119,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     status_task.cancel()
 
-    try:
-        parsed = json.loads(response)
-        print(parsed)
-        if parsed.get("intent") == "confirm_purchase":
-            product = parsed.get("product", {})
-            product_name = product.get("name", "Не указано")
-            volume = product.get("volume", "")
-            price = product.get("price", "")
+    intents = _extract_json_objects(response)
+    confirm_intents = [obj for obj in intents if isinstance(obj, dict) and obj.get("intent") == "confirm_purchase"]
 
-            funnel = OrderProcessing(user_id, context_manager)
-            funnel.set_predefined_answer("Чек/Товар", f"{product_name} · {volume} · {price}")
-            active_orders[user_id] = funnel
+    if len(confirm_intents) == 1 and len(intents) == 1:
+        parsed = confirm_intents[0]
+        product = parsed.get("product", {})
+        product_name = product.get("name", "Не указано")
+        volume = product.get("volume", "")
+        price = product.get("price", "")
 
-            question = funnel.get_next_question()
-            try:
-                await status_message.edit_text(f"Начинаем оформление вашей заявки.\n{question}")
-            except Exception:
-                await update.message.reply_text(f"Начинаем оформление вашей заявки.\n{question}")
-            return
-    except json.JSONDecodeError:
-        pass
+        funnel = OrderProcessing(user_id, context_manager)
+        funnel.set_predefined_answer("Чек/Товар", f"{product_name} · {volume} · {price}")
+        active_orders[user_id] = funnel
+
+        question = funnel.get_next_question()
+        try:
+            await status_message.edit_text(f"Начинаем оформление вашей заявки.\n{question}")
+        except Exception:
+            await update.message.reply_text(f"Начинаем оформление вашей заявки.\n{question}")
+        return
+
+    if intents:
+        response = re.sub(r'\{.*?\}', '', response, flags=re.DOTALL).strip()
 
     try:
         await status_message.edit_text(response)
@@ -124,6 +150,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context_manager.append_message(user_id, "assistant", response)
     context_manager.clear_expired_contexts()
+
 
 def run_telegram_bot():
     update_catalog_from_google()
