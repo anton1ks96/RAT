@@ -56,7 +56,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-context_manager = ContextManager(max_messages=20, ttl_minutes=120)
+context_manager = ContextManager(max_messages=10)
 active_orders = {}
 
 
