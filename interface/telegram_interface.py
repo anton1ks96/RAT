@@ -54,7 +54,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 save_to_google_sheets(order_data)
                 logging.info("Сохранение заявки в google sheets.")
-                await update.message.reply_text("Ваша завявка была собрана и отправлена!")
+                await update.message.reply_text("Ваша заявка была собрана и отправлена!")
             except Exception as e:
                 logging.info(f"Ошибка при сохранении в google sheets: {e}")
 
