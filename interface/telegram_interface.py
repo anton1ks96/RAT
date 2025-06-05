@@ -56,6 +56,9 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
+
 context_manager = ContextManager(max_messages=10)
 active_orders = {}
 
@@ -80,7 +83,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             order_data = funnel.summarize_data()
             try:
                 save_to_google_sheets(order_data)
-                logging.info("Сохранение заявки в google sheets.")
                 await update.message.reply_text("Ваша заявка была собрана и отправлена!")
             except Exception as e:
                 logging.exception(e)

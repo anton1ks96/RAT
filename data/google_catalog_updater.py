@@ -1,4 +1,5 @@
 import json
+import logging
 import gspread
 import os
 from config import CREDS_FILE, CATALOG_SPREADSHEET_ID
@@ -38,3 +39,4 @@ def save_catalog_to_json(catalog, catalog_path=CATALOG_PATH):
 def update_catalog_from_google(spreadsheet_id=CATALOG_SPREADSHEET_ID, json_path=CATALOG_PATH, credentials_path=CREDS_FILE):
     catalog_data = fetch_catalog_from_gsheet(spreadsheet_id, credentials_path)
     save_catalog_to_json(catalog_data, json_path)
+    logging.info("Каталог успешно подгружен из Google Sheets")

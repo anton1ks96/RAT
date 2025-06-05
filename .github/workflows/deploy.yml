@@ -1,0 +1,67 @@
+name: Dockerized RAT Deploy to VPS
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create .env from secret
+        run: |
+          echo "${{ secrets.ENV_FILE }}" > .env
+
+      - name: Decode and create JSON file from secret
+        run: |
+          echo "${{ secrets.FORMAL_GURU }}" | base64 -d > formal-guru-447320-t9-4d011c14e1be.json
+
+      - name: Build Docker image
+        run: docker build -t rat-system:latest .
+
+      - name: Save Docker image to tar
+        run: docker save rat-system:latest -o rat-system.tar
+
+      - name: Clean up directory
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            rm -f /${{ secrets.VPS_USER }}/app/rat-system.tar
+
+      - name: Upload Docker image to VPS
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "rat-system.tar"
+          target: "/${{ secrets.VPS_USER }}/app"
+          rm: false
+
+      - name: Load and run Docker image on VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /${{ secrets.VPS_USER }}/app
+            docker stop rat-system || true
+            docker rm rat-system || true
+            docker load -i rat-system.tar
+            docker run -d --name rat-system \
+              --restart always \
+              rat-system:latest

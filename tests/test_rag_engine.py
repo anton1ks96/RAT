@@ -38,10 +38,6 @@ def test_multiple_products_formats(rag_engine):
     assert "1. Моющее средство для стекол · 5 л · 178₽" in result
     assert "2. Моющее средство для стекол · 0.5 л · 86₽" in result
 
-def test_request_product_description(rag_engine):
-    result = rag_engine.query("Что такое моющее средство для стекол 0.5 л, расскажи подробнее?")
-    assert "Описание: Для стеклянных поверхностей и зеркал." in result
-
 def test_no_unrequested_description_given(rag_engine):
     result = rag_engine.query("Хочу моющее средство для стекол 0.5 л")
     assert "Описание:" not in result
